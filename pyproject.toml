@@ -1,0 +1,21 @@
+[project]
+name = "niimprint"
+version = "0.0.2"
+authors = [
+  { name = "kjy00302", email = "kjy00302@gmail.com" },
+  { name = "Piotr Piatkowski", email = "pp@idea7.pl" },
+]
+description = "Printing labels on Niimbot D11 printer"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+]
+dependencies = [
+  "Pillow >= 8.0",
+]
+[project.urls]
+"Homepage" = "https://github.com/piotr-piatkowski/niimprint"
+"Bug Tracker" = "https://github.com/piotr-piatkowski/niimprint/issues"
