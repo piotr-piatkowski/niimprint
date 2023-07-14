@@ -21,22 +21,19 @@ def create_label(args):
 
     if font_size == 0:
         font_size = 42
-        while True:        
+        while font_size > 5:        
             font = ImageFont.truetype(font_name, font_size)
             bbox = draw.textbbox((w//2, h//2), txt, font=font)
             tw = bbox[2] - bbox[0]
             th = bbox[3] - bbox[1]
             if tw <= w - 4 and th <= h - 4:
-                print(f"Using font size {font_size}")
                 break
             font_size -= 1
-            if font_size <= 5:
-                raise Exception('Text too long')
+        print(f"Using font size {font_size}")
     else:
         font = ImageFont.truetype(font_name, font_size)
 
     draw.text((w//2, h//2), txt, font=font, fill=0, anchor="mm")
-    img = img.transpose(Image.ROTATE_270)
     return img
 
 def get_test_image(w, h):
@@ -56,9 +53,58 @@ def get_test_image(w, h):
     font = ImageFont.truetype('DejaVuSans-Bold.ttf', 42)
     draw.text((w//2, h//2), 'Hello, world!', font=font,
                fill=0, stroke_fill=1, stroke_width=3, anchor="mm")
-
-    img = img.transpose(Image.ROTATE_270)
     return img
+
+def run_ui(args, img):
+    import PySimpleGUI as sg
+    from io import BytesIO
+
+    sg.theme('SystemDefault')
+
+    img_io = BytesIO()
+    img.save(img_io, format='PNG')
+
+    layout = [
+        [
+            sg.Text('Text: '),
+            sg.InputText(args.text, key="input", enable_events=True),
+        ],
+        [
+            sg.Checkbox('Bold', enable_events=True, key="bold",
+                        default=args.bold),
+            sg.Text('Font size: '),
+            sg.Slider((5, 99), key="font_size", default_value=args.font_size,
+                      orientation='h', enable_events=True),
+        ],
+        [
+            sg.Frame("Preview:", [
+                [sg.Image(key="image_preview", data=img_io.getvalue())]
+            ])
+        ],
+        [sg.Button('Quit'), sg.Button('Print')],
+    ]
+    window = sg.Window('Niimbot Printer Client', layout)
+
+    def update_image(values):
+        nonlocal img
+        args.bold = values['bold']
+        args.font_size = values['font_size']
+        args.text = values['input']
+        img = create_label(args)
+        img_io = BytesIO()
+        img.save(img_io, format='PNG')
+        window['image_preview'].update(data=img_io.getvalue())
+
+    while True:
+        event, values = window.read()
+        print(f"Event: {event}, Values: {values}")
+        if event in (None, 'Quit'):
+            break
+        elif event in ('input', 'font_size', 'bold'):
+            update_image(values)
+        elif event == 'Print':
+            print("Printing...")
+
 
 if __name__ == '__main__':
 
@@ -81,6 +127,8 @@ if __name__ == '__main__':
                         help="Use test image instead of file")
     parser.add_argument('--show-only', '-so', action='store_true',
                         help="Don't print, but show image")
+    parser.add_argument('--ui', '-ui', action='store_true',
+                        help="Display UI with image preview")
     parser.add_argument('--text', '-T', type=str,
                         help='Text to print')
     parser.add_argument('-W', '--width', type=int, default=320,
@@ -103,14 +151,20 @@ if __name__ == '__main__':
         exit(1)
     else:
         img = Image.open(args.image)
-        if img.width / img.height > 1:
+        if img.width / img.height < 1:
             # rotate clockwise 90deg, upper line (left line) prints first.
-            img = img.transpose(Image.ROTATE_270)
-        assert args.no_check or (img.width == 96 and img.height < 600)
+            img = img.transpose(Image.ROTATE_90)
+        assert args.no_check or (img.width < 600 and img.height == 96)
+
+    if args.ui:
+        run_ui(args, img)
+        exit(0)
 
     if args.show_only:
         img.show()
         exit(0)
+
+    img = img.transpose(Image.ROTATE_270)
 
     printer = printerclient.PrinterClient(args.address)
     printer.set_label_type(args.type)
