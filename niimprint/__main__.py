@@ -55,6 +55,26 @@ def get_test_image(w, h):
                fill=0, stroke_fill=1, stroke_width=3, anchor="mm")
     return img
 
+class LabelSize:
+    DPI = 203
+    def _mm_to_px(self, mm):
+        return int(mm / 25.4 * self.DPI + 0.5)
+    
+    def __init__(self, w, h):
+        self.w = w
+        self.h = h
+        self.wpix = self._mm_to_px(w)
+        self.hpix = self._mm_to_px(h)
+
+    def __str__(self):
+        return f"{self.wpix}x{self.hpix} ({self.w}x{self.h} mm)"
+
+LABEL_SIZES = [
+    LabelSize(40, 12),
+    LabelSize(30, 12),
+    LabelSize(22, 12),
+]
+
 def run_ui(args, img):
     import PySimpleGUI as sg
     from io import BytesIO
@@ -69,6 +89,13 @@ def run_ui(args, img):
             sg.Text('Device address: '),
             sg.InputText(args.address, key="address"),
             sg.Button('Connect', key="connect"),
+        ],
+        [ sg.HorizontalSeparator() ],
+        [
+            sg.Text('Label size:'),
+            sg.Combo(LABEL_SIZES, key="label_size", enable_events=True),
+            sg.Button('Read from printer', key="read_label_size",
+                      disabled=True),
         ],
         [ sg.HorizontalSeparator() ],
         [
@@ -123,6 +150,8 @@ def run_ui(args, img):
         args.bold = values['bold']
         args.font_size = values['font_size']
         args.text = values['input']
+        args.width = values['label_size'].wpix
+        args.height = values['label_size'].hpix
         img = create_label(args)
         img_io = BytesIO()
         img.save(img_io, format='PNG')
@@ -133,7 +162,7 @@ def run_ui(args, img):
         print(f"Event: {event}, Values: {values}")
         if event in (None, 'Quit'):
             break
-        elif event in ('input', 'font_size', 'bold'):
+        elif event in ('input', 'font_size', 'bold', 'label_size'):
             update_image(values)
         elif event == 'connect':
             connect(values)
