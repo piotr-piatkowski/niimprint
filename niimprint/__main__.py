@@ -1,6 +1,6 @@
 import os
 import argparse
-import printerclient
+from printerclient import PrinterClient, InfoEnum
 import printencoder
 
 from PIL import Image, ImageDraw, ImageFont
@@ -75,6 +75,26 @@ LABEL_SIZES = [
     LabelSize(22, 12),
 ]
 
+def print_image(args, printer, img):
+    printer.set_label_type(args.type)
+    printer.set_label_density(args.density)
+
+    img = img.transpose(Image.ROTATE_270)
+
+    printer.start_print()
+    printer.allow_print_clear()
+    printer.start_page_print()
+    printer.set_dimension(img.height, img.width)
+    printer.set_quantity(args.quantity)
+    for pkt in printencoder.naive_encoder(img):
+        printer._send(pkt)
+    printer.end_page_print()
+    while (a := printer.get_print_status())['page'] != args.quantity:
+        # print(a)
+        time.sleep(0.1)
+    printer.end_print()
+
+
 def run_ui(args, img):
     import PySimpleGUI as sg
     from io import BytesIO
@@ -93,7 +113,11 @@ def run_ui(args, img):
         [ sg.HorizontalSeparator() ],
         [
             sg.Text('Label size:'),
-            sg.Combo(LABEL_SIZES, key="label_size", enable_events=True),
+            sg.Listbox(LABEL_SIZES, key="label_size",
+                       default_values=[LABEL_SIZES[0]],
+                       select_mode=sg.LISTBOX_SELECT_MODE_SINGLE,
+                       size=(30, min(len(LABEL_SIZES), 5)),
+                       enable_events=True),
             sg.Button('Read from printer', key="read_label_size",
                       disabled=True),
         ],
@@ -130,12 +154,13 @@ def run_ui(args, img):
             window['status'].update('Status: disconnected')
             window['connect'].update(text='Connect')
             window['print'].update(disabled=True)
+            window['read_label_size'].update(disabled=True)
         else:
             args.address = values['address']
             window.set_cursor('watch')
             window.refresh()
             try:
-                printer = printerclient.PrinterClient(args.address)
+                printer = PrinterClient(args.address)
             except OSError as e:
                 window['status'].update(f'Error: {e}')
                 return
@@ -144,30 +169,45 @@ def run_ui(args, img):
             window['status'].update('Status: connected')
             window['connect'].update(text='Disconnect')
             window['print'].update(disabled=False)
+            #window['read_label_size'].update(disabled=False)
 
     def update_image(values):
         nonlocal img
         args.bold = values['bold']
         args.font_size = values['font_size']
         args.text = values['input']
-        args.width = values['label_size'].wpix
-        args.height = values['label_size'].hpix
+        label_size = values['label_size'][0]
+        args.width = label_size.wpix
+        args.height = label_size.hpix
         img = create_label(args)
         img_io = BytesIO()
         img.save(img_io, format='PNG')
         window['image_preview'].update(data=img_io.getvalue())
 
+    def read_label_size(values):
+        label = printer.get_info(InfoEnum.LABELTYPE)
+        print("label:", label)
+
+    def print(values):
+        window.set_cursor('watch')
+        window.refresh()
+        print_image(args, printer, img)
+        window.set_cursor('')
+
     while True:
         event, values = window.read()
-        print(f"Event: {event}, Values: {values}")
         if event in (None, 'Quit'):
             break
         elif event in ('input', 'font_size', 'bold', 'label_size'):
             update_image(values)
         elif event == 'connect':
             connect(values)
-        elif event == 'Print':
-            print("Printing...")
+        elif event == 'read_label_size':
+            read_label_size(values)
+        elif event == 'print':
+            print(values)
+        else:
+            print(f"Uknown event: {event}, values: {values}")
 
 
 if __name__ == '__main__':
@@ -228,21 +268,4 @@ if __name__ == '__main__':
         img.show()
         exit(0)
 
-    img = img.transpose(Image.ROTATE_270)
 
-    printer = printerclient.PrinterClient(args.address)
-    printer.set_label_type(args.type)
-    printer.set_label_density(args.density)
-
-    printer.start_print()
-    printer.allow_print_clear()
-    printer.start_page_print()
-    printer.set_dimension(img.height, img.width)
-    printer.set_quantity(args.quantity)
-    for pkt in printencoder.naive_encoder(img):
-        printer._send(pkt)
-    printer.end_page_print()
-    while (a := printer.get_print_status())['page'] != args.quantity:
-        # print(a)
-        time.sleep(0.1)
-    printer.end_print()
