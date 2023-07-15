@@ -59,12 +59,18 @@ def run_ui(args, img):
     import PySimpleGUI as sg
     from io import BytesIO
 
-    sg.theme('SystemDefault')
-
     img_io = BytesIO()
     img.save(img_io, format='PNG')
 
     layout = [
+        [
+            sg.Text('Status: disconnected', key="status"),
+            sg.VerticalSeparator(),
+            sg.Text('Device address: '),
+            sg.InputText(args.address, key="address"),
+            sg.Button('Connect', key="connect"),
+        ],
+        [ sg.HorizontalSeparator() ],
         [
             sg.Text('Text: '),
             sg.InputText(args.text, key="input", enable_events=True),
@@ -81,9 +87,36 @@ def run_ui(args, img):
                 [sg.Image(key="image_preview", data=img_io.getvalue())]
             ])
         ],
-        [sg.Button('Quit'), sg.Button('Print')],
+        [
+            sg.Button('Quit'),
+            sg.Button('Print', key="print", disabled=True),
+        ],
     ]
     window = sg.Window('Niimbot Printer Client', layout)
+
+    printer = None
+
+    def connect(values):
+        nonlocal printer
+        if printer:
+            printer = None
+            window['status'].update('Status: disconnected')
+            window['connect'].update(text='Connect')
+            window['print'].update(disabled=True)
+        else:
+            args.address = values['address']
+            window.set_cursor('watch')
+            window.refresh()
+            try:
+                printer = printerclient.PrinterClient(args.address)
+            except OSError as e:
+                window['status'].update(f'Error: {e}')
+                return
+            finally:
+                window.set_cursor('')
+            window['status'].update('Status: connected')
+            window['connect'].update(text='Disconnect')
+            window['print'].update(disabled=False)
 
     def update_image(values):
         nonlocal img
@@ -102,6 +135,8 @@ def run_ui(args, img):
             break
         elif event in ('input', 'font_size', 'bold'):
             update_image(values)
+        elif event == 'connect':
+            connect(values)
         elif event == 'Print':
             print("Printing...")
 
