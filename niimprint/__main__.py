@@ -176,7 +176,7 @@ def run_ui(args, img):
     def update_image(values):
         nonlocal img
         args.bold = values['bold']
-        args.font_size = values['font_size']
+        args.font_size = int(values['font_size'])
         args.text = values['input']
         label_size = values['label_size'][0]
         args.width = label_size.wpix

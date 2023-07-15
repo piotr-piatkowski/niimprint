@@ -1,6 +1,6 @@
 [project]
 name = "niimprint"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   { name = "kjy00302", email = "kjy00302@gmail.com" },
   { name = "Piotr Piatkowski", email = "pp@idea7.pl" },
