@@ -189,6 +189,7 @@ def run_ui(args, img):
     def handle_print(values):
         window.set_cursor('watch')
         window.refresh()
+        args.quantity = values['quantity']
         print_image(args, printer, img)
         window.set_cursor('')
 
