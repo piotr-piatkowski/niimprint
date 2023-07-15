@@ -33,7 +33,8 @@ def create_label(args):
     else:
         font = ImageFont.truetype(font_name, font_size)
 
-    draw.text((w//2, h//2), txt, font=font, fill=0, anchor="mm")
+    draw.text((w//2, h//2), txt, font=font, fill=0,
+              anchor="mm", align="center")
     return img
 
 def get_test_image(w, h):
@@ -118,13 +119,16 @@ def run_ui(args, img):
                        select_mode=sg.LISTBOX_SELECT_MODE_SINGLE,
                        size=(30, min(len(LABEL_SIZES), 5)),
                        enable_events=True),
-            sg.Button('Read from printer', key="read_label_size",
-                      disabled=True),
+            sg.VerticalSeparator(),
+            sg.Text('Number of copies: '),
+            sg.Spin([i+1 for i in range(10)], initial_value=args.quantity,
+                    key="quantity"),
         ],
         [ sg.HorizontalSeparator() ],
         [
             sg.Text('Text: '),
-            sg.InputText(args.text, key="input", enable_events=True),
+            sg.Multiline(args.text, key="input", enable_events=True,
+                         size=(70, 3)),
         ],
         [
             sg.Checkbox('Bold', enable_events=True, key="bold",
@@ -154,7 +158,6 @@ def run_ui(args, img):
             window['status'].update('Status: disconnected')
             window['connect'].update(text='Connect')
             window['print'].update(disabled=True)
-            window['read_label_size'].update(disabled=True)
         else:
             args.address = values['address']
             window.set_cursor('watch')
@@ -169,7 +172,6 @@ def run_ui(args, img):
             window['status'].update('Status: connected')
             window['connect'].update(text='Disconnect')
             window['print'].update(disabled=False)
-            #window['read_label_size'].update(disabled=False)
 
     def update_image(values):
         nonlocal img
@@ -184,11 +186,7 @@ def run_ui(args, img):
         img.save(img_io, format='PNG')
         window['image_preview'].update(data=img_io.getvalue())
 
-    def read_label_size(values):
-        label = printer.get_info(InfoEnum.LABELTYPE)
-        print("label:", label)
-
-    def print(values):
+    def handle_print(values):
         window.set_cursor('watch')
         window.refresh()
         print_image(args, printer, img)
@@ -205,7 +203,7 @@ def run_ui(args, img):
         elif event == 'read_label_size':
             read_label_size(values)
         elif event == 'print':
-            print(values)
+            handle_print(values)
         else:
             print(f"Uknown event: {event}, values: {values}")
 
